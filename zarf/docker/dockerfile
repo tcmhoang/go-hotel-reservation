@@ -1,0 +1,28 @@
+# Build configuration
+FROM golang:1.20 as build_api
+ENV CGO_ENABLED 0
+ARG BUILD_REF
+
+COPY . /service
+
+WORKDIR /service
+RUN go build -ldflags "-X main.build=${BUILD_REF}"
+
+# =================================================
+
+FROM alpine:3.18
+ARG BUILD_DATE
+ARG BUILD_REF
+
+COPY --from=build_api /service/sservices /service/s.out
+
+WORKDIR /service
+
+CMD ["./s.out"]
+
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.title="api" \
+      org.opencontainers.image.authors="tcmhoang" \
+      org.opencontainers.image.source="https://github.com/tcmhoang/sservice/app/sapi" \
+      org.opencontainers.image.revision="${BUILD_REF}" \
+      org.opencontainers.image.vendor="tcmhoang" 
