@@ -3,6 +3,7 @@ module github.com/tcmhoang/sservices
 go 1.20
 
 require (
+	github.com/ardanlabs/conf v1.5.0
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/zap v1.24.0
 )

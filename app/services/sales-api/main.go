@@ -1,12 +1,16 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
+	"time"
 
+	"github.com/ardanlabs/conf"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -30,14 +34,48 @@ func main() {
 }
 
 func run(log *zap.SugaredLogger) error {
+
 	if _, err := maxprocs.Set(); err != nil {
-		log.Errorw("maxprocs", "ERROR", err)
-		os.Exit(1)
+		return fmt.Errorf("maxprocs %w", err)
+	}
+
+	// TODO: Need to figure out timeouts for http service
+	cfg := struct {
+		conf.Version
+		Web struct {
+			APIHOST         string        `conf:"default:0.0.0.0:3000"`
+			DebugHost       string        `conf:"default:0.0.0.0:4000"`
+			ReadTimeout     time.Duration `conf:"default:5s"`
+			WriteTimeout    time.Duration `conf:"default:10s"`
+			IdleTimeout     time.Duration `conf:"default:120s"`
+			ShutdownTimeout time.Duration `conf:"default:20s"`
+		}
+	}{
+		Version: conf.Version{
+			SVN:  build,
+			Desc: "TCMHOANG",
+		},
+	}
+
+	const prefix = "SALES"
+	help, err := conf.ParseOSArgs(prefix, &cfg)
+	if err != nil {
+		if errors.Is(err, conf.ErrHelpWanted) {
+			fmt.Println(help)
+			return nil
+		}
+		return fmt.Errorf("passing config: %w", err)
 	}
 
 	g := runtime.GOMAXPROCS(0)
 	log.Infof("Starting service build[%s] CPU[%d]\n", build, g)
 	defer log.Infoln("Service ended")
+
+	out, err := conf.String(&cfg)
+	if err != nil {
+		return fmt.Errorf("Generating config for stdout: %w", err)
+	}
+	log.Infow("Start up", "CONFIG", out)
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
