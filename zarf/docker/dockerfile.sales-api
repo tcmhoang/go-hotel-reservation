@@ -5,7 +5,7 @@ ARG BUILD_REF
 
 COPY . /service
 
-WORKDIR /service
+WORKDIR /service/app/services/sales-api
 RUN go build -ldflags "-X main.build=${BUILD_REF}"
 
 # =================================================
@@ -14,15 +14,15 @@ FROM alpine:3.18
 ARG BUILD_DATE
 ARG BUILD_REF
 
-COPY --from=build_api /service/sservices /service/s.out
+COPY --from=build_api /service/app/services/sales-api/sales-api /service/sales-api.out
 
 WORKDIR /service
 
-CMD ["./s.out"]
+CMD ["./sales-api.out"]
 
 LABEL org.opencontainers.image.created="${BUILD_DATE}" \
-      org.opencontainers.image.title="api" \
+      org.opencontainers.image.title="sales-api" \
       org.opencontainers.image.authors="tcmhoang" \
-      org.opencontainers.image.source="https://github.com/tcmhoang/sservice/app/sapi" \
+      org.opencontainers.image.source="https://github.com/tcmhoang/sservice/app/services/sales-api" \
       org.opencontainers.image.revision="${BUILD_REF}" \
       org.opencontainers.image.vendor="tcmhoang" 
