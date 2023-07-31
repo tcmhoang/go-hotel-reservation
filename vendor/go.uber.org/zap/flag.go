@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Uber Technologies, Inc.
+// Copyright (c) 2016 Uber Technologies, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -18,16 +18,22 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-// Package automaxprocs automatically sets GOMAXPROCS to match the Linux
-// container CPU quota, if any.
-package automaxprocs // import "go.uber.org/automaxprocs"
+package zap
 
 import (
-	"log"
+	"flag"
 
-	"go.uber.org/automaxprocs/maxprocs"
+	"go.uber.org/zap/zapcore"
 )
 
-func init() {
-	maxprocs.Set(maxprocs.Logger(log.Printf))
+// LevelFlag uses the standard library's flag.Var to declare a global flag
+// with the specified name, default, and usage guidance. The returned value is
+// a pointer to the value of the flag.
+//
+// If you don't want to use the flag package's global state, you can use any
+// non-nil *Level as a flag.Value with your own *flag.FlagSet.
+func LevelFlag(name string, defaultLevel zapcore.Level, usage string) *zapcore.Level {
+	lvl := defaultLevel
+	flag.Var(&lvl, name, usage)
+	return &lvl
 }

@@ -26,7 +26,6 @@ _testmain.go
 *.pprof
 *.out
 *.log
-coverage.txt
 
 /bin
 cover.out
