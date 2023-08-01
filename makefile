@@ -1,5 +1,8 @@
 SHELL := /bin/bash
 
+monitor:
+	expvarmon --port=":4000" -vars="build,requests,goroutines,errors,panics,mem:memstats.Alloc"
+
 # Container
 
 all: sales-api

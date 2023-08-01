@@ -2,8 +2,10 @@ package main
 
 import (
 	"errors"
+	"expvar"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
@@ -11,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ardanlabs/conf"
+	"github.com/tcmhoang/sservices/app/services/sales-api/handlers"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -39,6 +42,10 @@ func run(log *zap.SugaredLogger) error {
 		return fmt.Errorf("maxprocs %w", err)
 	}
 
+	g := runtime.GOMAXPROCS(0)
+	log.Infof("Starting service build[%s] CPU[%d]\n", build, g)
+	defer log.Infoln("Service ended")
+
 	// TODO: Need to figure out timeouts for http service
 	cfg := struct {
 		conf.Version
@@ -57,25 +64,21 @@ func run(log *zap.SugaredLogger) error {
 		},
 	}
 
-	const prefix = "SALES"
-	help, err := conf.ParseOSArgs(prefix, &cfg)
+	confout, err := initConfig(&cfg)
+
 	if err != nil {
-		if errors.Is(err, conf.ErrHelpWanted) {
-			fmt.Println(help)
-			return nil
-		}
-		return fmt.Errorf("passing config: %w", err)
+		return err
 	}
 
-	g := runtime.GOMAXPROCS(0)
-	log.Infof("Starting service build[%s] CPU[%d]\n", build, g)
-	defer log.Infoln("Service ended")
-
-	out, err := conf.String(&cfg)
-	if err != nil {
-		return fmt.Errorf("Generating config for stdout: %w", err)
+	if err == nil && confout == "" { // help option
+		return nil
 	}
-	log.Infow("Start up", "CONFIG", out)
+
+	log.Infow("Startup", "CONFIG", confout)
+	expvar.NewString("build").Set(build)
+
+	log.Infow("Startup", "Status", "Debug router started", "host", cfg.Web.DebugHost)
+	initDebugMux(log, cfg.Web.DebugHost)
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
@@ -83,6 +86,36 @@ func run(log *zap.SugaredLogger) error {
 
 	log.Infoln("Stopping service")
 	return nil
+}
+
+func initDebugMux(log *zap.SugaredLogger, host string) {
+	debugMux := handlers.DebugStdLibMux()
+
+	go func() {
+		if err := http.ListenAndServe(host, debugMux); err != nil {
+			log.Errorw("Shutdown", "status", "Debug router closed", "host", host, "ERROR", err)
+		}
+	}()
+
+}
+
+func initConfig(cfg interface{}) (string, error) {
+	const prefix = "SALES"
+
+	help, err := conf.ParseOSArgs(prefix, cfg)
+	if err != nil {
+		if errors.Is(err, conf.ErrHelpWanted) {
+			fmt.Println(help)
+			return "", nil
+		}
+		return "", fmt.Errorf("passing config: %w", err)
+	}
+	out, err := conf.String(cfg)
+	if err != nil {
+		return "", fmt.Errorf("Generating config for stdout: %w", err)
+	}
+
+	return out, nil
 }
 
 func initLogger() (*zap.SugaredLogger, error) {
