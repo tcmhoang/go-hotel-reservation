@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"expvar"
 	"fmt"
@@ -44,7 +45,7 @@ func run(log *zap.SugaredLogger) error {
 
 	g := runtime.GOMAXPROCS(0)
 	log.Infof("Starting service build[%s] CPU[%d]\n", build, g)
-	defer log.Infoln("Service ended")
+	defer log.Infoln("Shutdown complete")
 
 	// TODO: Need to figure out timeouts for http service
 	cfg := struct {
@@ -80,11 +81,43 @@ func run(log *zap.SugaredLogger) error {
 	log.Infow("Startup", "Status", "Debug router started", "host", cfg.Web.DebugHost)
 	initDebugMux(log, cfg.Web.DebugHost)
 
+	log.Infow("Startup", "Status", "Initializing API support")
+
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
-	<-shutdown
 
-	log.Infoln("Stopping service")
+	api := http.Server{
+		Addr:         cfg.Web.APIHOST,
+		Handler:      nil, // TODO: Implement this
+		ReadTimeout:  cfg.Web.ReadTimeout,
+		WriteTimeout: cfg.Web.WriteTimeout,
+		IdleTimeout:  cfg.Web.IdleTimeout,
+		ErrorLog:     zap.NewStdLog(log.Desugar()),
+	}
+
+	severErrs := make(chan error, 1)
+	go func() {
+		log.Infow("Startup", "Status", "api router started", "host", api.Addr)
+		severErrs <- api.ListenAndServe()
+	}()
+
+	select {
+	case err := <-severErrs:
+		return fmt.Errorf("Server error: %w", err)
+
+	case sig := <-shutdown:
+		log.Infow("Shutdown", "Status", "Shutdown started", "signal", sig)
+		defer log.Infow("Shutdown", "Status", "Shutdown complete", "signal", sig)
+
+		ctx, cancel := context.WithTimeout(context.Background(), cfg.Web.ShutdownTimeout)
+		defer cancel()
+
+		if err := api.Shutdown(ctx); err != nil {
+			api.Close()
+			return fmt.Errorf("Could not stop server gracefully: %w", err)
+		}
+	}
+
 	return nil
 }
 
