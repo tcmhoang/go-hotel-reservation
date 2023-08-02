@@ -47,12 +47,21 @@ type APIMuxConfig struct {
 }
 
 func APIMux(cfg APIMuxConfig) *web.App {
-	mux := web.NewApp(cfg.Shutdown)
+	app := web.NewApp(cfg.Shutdown)
+
+	v1(app, cfg)
+
+	return app
+
+}
+
+func v1(app *web.App, cfg APIMuxConfig) {
+	const ver = "v1"
+
 	tgh := testgrp.Handlers{
 		Log: cfg.Log,
 	}
 
-	mux.Handle(http.MethodGet, "/v1/test", tgh.Test)
-	return mux
+	app.Handle(http.MethodGet, ver, "/test", tgh.Test)
 
 }
