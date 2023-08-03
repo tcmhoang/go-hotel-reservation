@@ -12,7 +12,7 @@ import (
 var service string
 
 const fkey = "service"
-const traceidkey = "trace_id"
+const traceidkey = "traceid"
 
 func init() {
 	flag.StringVar(&service, fkey, "", "filter which service to see")
