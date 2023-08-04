@@ -3,6 +3,10 @@ SHELL := /bin/bash
 monitor:
 	expvarmon --port=":4000" -vars="build,requests,goroutines,errors,panics,mem:memstats.Alloc"
 
+
+loads:
+	hey -m GET -c 100 -n 10000 -H "Authorization: Bearer ${TOKEN}" http://localhost:3000/v1/test"
+
 # Container
 
 all: sales-api
