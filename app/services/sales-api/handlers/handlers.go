@@ -48,7 +48,7 @@ type APIMuxConfig struct {
 }
 
 func APIMux(cfg APIMuxConfig) *web.App {
-	app := web.NewApp(cfg.Shutdown, mids.Logger(cfg.Log))
+	app := web.NewApp(cfg.Shutdown, mids.Logger(cfg.Log), mids.Errors(cfg.Log))
 
 	v1(app, cfg)
 
