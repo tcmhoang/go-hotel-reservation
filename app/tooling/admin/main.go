@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -80,6 +81,37 @@ func genToken() error {
 	if err := pem.Encode(os.Stdout, &pubblk); err != nil {
 		return fmt.Errorf("Encoding to public file: %w", err)
 	}
+
+	var parserClaims struct {
+		jwt.RegisteredClaims
+		Roles []string
+	}
+
+	parser := jwt.NewParser(jwt.WithValidMethods([]string{"RS256"}))
+	getPubKeyFun := func(t *jwt.Token) (interface{}, error) {
+		kid, ok := t.Header["kid"]
+		if !ok {
+			return nil, errors.New("Missing key id (kid) in token header")
+		}
+		kidID, ok := kid.(string)
+		if !ok {
+			return nil, errors.New("User token id (kid) must be string")
+		}
+		fmt.Println("KID", kidID)
+		return &privkey.PublicKey, nil
+	}
+
+	parsedToken, err := parser.ParseWithClaims(str, &parserClaims, getPubKeyFun)
+
+	if err != nil {
+		return fmt.Errorf("Parsing token: %w", err)
+	}
+
+	if !parsedToken.Valid {
+		return fmt.Errorf("Invalid Token")
+	}
+
+	fmt.Println("Token validate")
 
 	return nil
 }
