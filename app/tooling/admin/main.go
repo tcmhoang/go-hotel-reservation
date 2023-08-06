@@ -55,7 +55,7 @@ func genToken() error {
 
 	method := jwt.GetSigningMethod("RS256")
 	token := jwt.NewWithClaims(method, claims)
-	token.Header["kid"] = "123"
+	token.Header["kid"] = "private"
 
 	str, err := token.SignedString(privkey)
 	if err != nil {
