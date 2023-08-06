@@ -18,7 +18,7 @@ func Respond[A any](ctx context.Context, w http.ResponseWriter, data A, statusCo
 	jsoned, err := json.Marshal(data)
 
 	if err != nil {
-		return nil
+		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
