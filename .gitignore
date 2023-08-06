@@ -1,6 +1,9 @@
 # Binaries
 app/services/sales-api/sales-api
 
+# Keys 
+*.pem
+
 # Environment
 app/frontends/admin/.env
 
