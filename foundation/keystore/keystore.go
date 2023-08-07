@@ -1,3 +1,5 @@
+// Package keystore implements the auth.KeyLookup interface. This implements
+// an in-memory keystore for JWT support.
 package keystore
 
 import (
@@ -88,7 +90,7 @@ func (ks *KeyStore) Remove(kid string) {
 
 func (ks *KeyStore) PrivateKey(kid string) (*rsa.PrivateKey, error) {
 	ks.lock.Lock()
-	ks.lock.Unlock()
+	defer ks.lock.Unlock()
 
 	privKey, found := ks.store[kid]
 	if !found {

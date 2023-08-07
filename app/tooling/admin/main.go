@@ -79,7 +79,7 @@ func genToken() error {
 	}
 
 	if err := pem.Encode(os.Stdout, &pubblk); err != nil {
-		return fmt.Errorf("Encoding to public file: %w", err)
+		return fmt.Errorf("encoding to public file: %w", err)
 	}
 
 	var parserClaims struct {
@@ -91,11 +91,11 @@ func genToken() error {
 	getPubKeyFun := func(t *jwt.Token) (interface{}, error) {
 		kid, ok := t.Header["kid"]
 		if !ok {
-			return nil, errors.New("Missing key id (kid) in token header")
+			return nil, errors.New("missing key id (kid) in token header")
 		}
 		kidID, ok := kid.(string)
 		if !ok {
-			return nil, errors.New("User token id (kid) must be string")
+			return nil, errors.New("user token id (kid) must be string")
 		}
 		fmt.Println("KID", kidID)
 		return &privkey.PublicKey, nil
@@ -104,11 +104,11 @@ func genToken() error {
 	parsedToken, err := parser.ParseWithClaims(str, &parserClaims, getPubKeyFun)
 
 	if err != nil {
-		return fmt.Errorf("Parsing token: %w", err)
+		return fmt.Errorf("parsing token: %w", err)
 	}
 
 	if !parsedToken.Valid {
-		return fmt.Errorf("Invalid Token")
+		return fmt.Errorf("invalid Token")
 	}
 
 	fmt.Println("Token validate")
@@ -155,7 +155,7 @@ func genKey() error {
 	}
 
 	if err := pem.Encode(pubfile, &pubblk); err != nil {
-		return fmt.Errorf("Encoding to public file: %w", err)
+		return fmt.Errorf("encoding to public file: %w", err)
 	}
 
 	return nil

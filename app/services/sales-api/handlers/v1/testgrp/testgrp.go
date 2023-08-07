@@ -1,3 +1,4 @@
+// Package testgrp contains handlers for testing purposes
 package testgrp
 
 import (

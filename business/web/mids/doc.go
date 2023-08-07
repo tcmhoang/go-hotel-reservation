@@ -1,2 +1,2 @@
-// contains the set of middleware functions
+// Package mids contains the set of middleware functions
 package mids

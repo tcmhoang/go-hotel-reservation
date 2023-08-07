@@ -126,7 +126,7 @@ func run(log *zap.SugaredLogger) error {
 
 	select {
 	case err := <-severErrs:
-		return fmt.Errorf("Server error: %w", err)
+		return fmt.Errorf("server error: %w", err)
 
 	case sig := <-shutdown:
 		log.Infow("Shutdown", "Status", "Shutdown started", "signal", sig)
@@ -137,7 +137,7 @@ func run(log *zap.SugaredLogger) error {
 
 		if err := api.Shutdown(ctx); err != nil {
 			api.Close()
-			return fmt.Errorf("Could not stop server gracefully: %w", err)
+			return fmt.Errorf("could not stop server gracefully: %w", err)
 		}
 	}
 
@@ -168,7 +168,7 @@ func initConfig(cfg interface{}) (string, error) {
 	}
 	out, err := conf.String(cfg)
 	if err != nil {
-		return "", fmt.Errorf("Generating config for stdout: %w", err)
+		return "", fmt.Errorf("generating config for stdout: %w", err)
 	}
 
 	return out, nil

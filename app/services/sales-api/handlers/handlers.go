@@ -1,4 +1,4 @@
-// Contains the full set of handler functions and routes
+// Package handlers contains the full set of handler functions and routes
 // Which is supported by the web api.
 package handlers
 

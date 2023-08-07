@@ -1,3 +1,4 @@
+// Package chkgrp maintains the groupof handlers for health checking
 package chkgrp
 
 import (

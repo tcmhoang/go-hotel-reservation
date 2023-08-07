@@ -10,6 +10,10 @@ loads:
 # Testng auth 
 # curl -iH "Authorization: Bearer ${TOKEN}" http://localhost:3000/v1/testauth
 
+test: 
+	go test ./... 
+	staticcheck -checks=all ./...
+
 # Container
 
 all: sales-api

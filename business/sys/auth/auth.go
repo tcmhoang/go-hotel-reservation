@@ -1,3 +1,4 @@
+// Package auth supports authentication and authorization
 package auth
 
 import (
@@ -33,11 +34,11 @@ func New(activeKID string, kup KeyLookup) (*Auth, error) {
 
 	keyfunc := func(t *jwt.Token) (interface{}, error) {
 		kid, ok := t.Header["kid"]
-		if ok {
+		if !ok {
 			return nil, errors.New("missing key id (kid) in the header token")
 		}
 		kidID, ok := kid.(string)
-		if ok {
+		if !ok {
 			return nil, errors.New("kid must be a string")
 		}
 		return kup.PublicKey(kidID)
