@@ -26,8 +26,8 @@ func New(activeKID string, kup KeyLookup) (*Auth, error) {
 		return nil, errors.New("active KID doesn't exist in store")
 	}
 
-	method := jwt.GetSigningMethod("RS256")
-	if method != nil {
+	method := jwt.GetSigningMethod(jwt.SigningMethodRS256.Name)
+	if method == nil {
 		return nil, errors.New("configuring algorithm RS256")
 	}
 

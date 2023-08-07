@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -46,7 +45,7 @@ func NewFS(fsys fs.FS) (*KeyStore, error) {
 			return nil
 		}
 
-		file, err := os.Open(p)
+		file, err := fsys.Open(p)
 		if err != nil {
 			return fmt.Errorf("opening key file: %w", err)
 		}
@@ -61,7 +60,6 @@ func NewFS(fsys fs.FS) (*KeyStore, error) {
 		if err != nil {
 			return fmt.Errorf("parsing auth private key: %w", err)
 		}
-
 		ks.store[strings.TrimSuffix(de.Name(), ".pem")] = parsedPrivKey
 
 		return nil
@@ -92,7 +90,7 @@ func (ks *KeyStore) PrivateKey(kid string) (*rsa.PrivateKey, error) {
 	ks.lock.Lock()
 	ks.lock.Unlock()
 
-	privKey, found := ks.store["kid"]
+	privKey, found := ks.store[kid]
 	if !found {
 		return nil, errors.New("kid lookup failed")
 	}

@@ -15,6 +15,8 @@ import (
 
 	"github.com/ardanlabs/conf"
 	"github.com/tcmhoang/sservices/app/services/sales-api/handlers"
+	"github.com/tcmhoang/sservices/business/sys/auth"
+	"github.com/tcmhoang/sservices/foundation/keystore"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -58,6 +60,10 @@ func run(log *zap.SugaredLogger) error {
 			IdleTimeout     time.Duration `conf:"default:120s"`
 			ShutdownTimeout time.Duration `conf:"default:20s"`
 		}
+		Auth struct {
+			KeysFolder string `conf:"default:zarf/keys/"`
+			ActiveKID  string `conf:"default:private"`
+		}
 	}{
 		Version: conf.Version{
 			SVN:  build,
@@ -78,6 +84,16 @@ func run(log *zap.SugaredLogger) error {
 	log.Infow("Startup", "CONFIG", confout)
 	expvar.NewString("build").Set(build)
 
+	ks, err := keystore.NewFS(os.DirFS(cfg.Auth.KeysFolder))
+	if err != nil {
+		return fmt.Errorf("reading keys: %w", err)
+	}
+
+	auth, err := auth.New(cfg.Auth.ActiveKID, ks)
+	if err != nil {
+		return fmt.Errorf("constructing auth: %w", err)
+	}
+
 	log.Infow("Startup", "Status", "Debug router started", "host", cfg.Web.DebugHost)
 	initDebugMux(log, cfg.Web.DebugHost)
 
@@ -90,6 +106,7 @@ func run(log *zap.SugaredLogger) error {
 		handlers.APIMuxConfig{
 			Shutdown: shutdown,
 			Log:      log,
+			Auth:     auth,
 		})
 
 	api := http.Server{

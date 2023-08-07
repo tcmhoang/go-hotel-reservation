@@ -10,6 +10,7 @@ import (
 
 	chkgrp "github.com/tcmhoang/sservices/app/services/sales-api/handlers/debug"
 	"github.com/tcmhoang/sservices/app/services/sales-api/handlers/v1/testgrp"
+	"github.com/tcmhoang/sservices/business/sys/auth"
 	"github.com/tcmhoang/sservices/business/web/mids"
 	"github.com/tcmhoang/sservices/foundation/web"
 	"go.uber.org/zap"
@@ -45,6 +46,7 @@ func DebugMux(build string, log *zap.SugaredLogger) http.Handler {
 type APIMuxConfig struct {
 	Shutdown chan os.Signal
 	Log      *zap.SugaredLogger
+	Auth     *auth.Auth
 }
 
 func APIMux(cfg APIMuxConfig) *web.App {
@@ -70,5 +72,10 @@ func v1(app *web.App, cfg APIMuxConfig) {
 	}
 
 	app.Handle(http.MethodGet, ver, "/test", tgh.Test)
+	app.Handle(http.MethodGet, ver, "/testauth",
+		tgh.Test,
+		mids.Authenticate(cfg.Auth),
+		mids.Authorize(auth.Admin),
+	)
 
 }

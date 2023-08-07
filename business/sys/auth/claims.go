@@ -34,11 +34,11 @@ type ctxKey int
 
 const key ctxKey = 1
 
-func setClaims(ctx context.Context, claims Claims) context.Context {
+func SetClaims(ctx context.Context, claims Claims) context.Context {
 	return context.WithValue(ctx, key, claims)
 }
 
-func getClaims(ctx context.Context) (Claims, error) {
+func GetClaims(ctx context.Context) (Claims, error) {
 	claims, ok := ctx.Value(key).(Claims)
 	if !ok {
 		return Claims{}, errors.New("claims value missing from context")

@@ -7,6 +7,9 @@ monitor:
 loads:
 	hey -m GET -c 100 -n 10000 -H "Authorization: Bearer ${TOKEN}" http://localhost:3000/v1/test"
 
+# Testng auth 
+# curl -iH "Authorization: Bearer ${TOKEN}" http://localhost:3000/v1/testauth
+
 # Container
 
 all: sales-api
