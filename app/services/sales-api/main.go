@@ -16,6 +16,7 @@ import (
 	"github.com/ardanlabs/conf"
 	"github.com/tcmhoang/sservices/app/services/sales-api/handlers"
 	"github.com/tcmhoang/sservices/business/sys/auth"
+	"github.com/tcmhoang/sservices/business/sys/database"
 	"github.com/tcmhoang/sservices/foundation/keystore"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
@@ -64,6 +65,15 @@ func run(log *zap.SugaredLogger) error {
 			KeysFolder string `conf:"default:zarf/keys/"`
 			ActiveKID  string `conf:"default:private"`
 		}
+		DB struct {
+			User         string `conf:"default:postgres"`
+			Password     string `conf:"default:postgres,mask"`
+			Host         string `conf:"default:localhost"`
+			Name         string `conf:"default:postgres"`
+			MaxIdleConns int    `conf:"default:2"`
+			MaxOpenConns int    `conf:"default:0"`
+			DisableTLS   bool   `conf:"default:true"`
+		}
 	}{
 		Version: conf.Version{
 			SVN:  build,
@@ -94,10 +104,32 @@ func run(log *zap.SugaredLogger) error {
 		return fmt.Errorf("constructing auth: %w", err)
 	}
 
-	log.Infow("Startup", "Status", "Debug router started", "host", cfg.Web.DebugHost)
+	log.Infow("startup", "status", "initializing database support", "host", cfg.DB.Host)
+
+	db, err := database.Open(
+		database.Config{
+			User:         cfg.DB.User,
+			Password:     cfg.DB.Password,
+			Host:         cfg.DB.Host,
+			Name:         cfg.DB.Name,
+			MaxIdleConns: cfg.DB.MaxIdleConns,
+			MaxOpenConns: cfg.DB.MaxOpenConns,
+			DisableTLS:   cfg.DB.DisableTLS,
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf("connecting to db: %w", err)
+	}
+	defer func() {
+		log.Infow("shutdown", "status", "stopping database support", "host", cfg.DB.Host)
+		db.Close()
+	}()
+
+	log.Infow("startup", "status", "debug router started", "host", cfg.Web.DebugHost)
 	initDebugMux(log, cfg.Web.DebugHost)
 
-	log.Infow("Startup", "Status", "Initializing API support")
+	log.Infow("startup", "status", "initializing API support")
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
@@ -120,7 +152,7 @@ func run(log *zap.SugaredLogger) error {
 
 	severErrs := make(chan error, 1)
 	go func() {
-		log.Infow("Startup", "Status", "api router started", "host", api.Addr)
+		log.Infow("startup", "status", "api router started", "host", api.Addr)
 		severErrs <- api.ListenAndServe()
 	}()
 
@@ -129,8 +161,8 @@ func run(log *zap.SugaredLogger) error {
 		return fmt.Errorf("server error: %w", err)
 
 	case sig := <-shutdown:
-		log.Infow("Shutdown", "Status", "Shutdown started", "signal", sig)
-		defer log.Infow("Shutdown", "Status", "Shutdown complete", "signal", sig)
+		log.Infow("shutdown", "status", "shutdown started", "signal", sig)
+		defer log.Infow("shutdown", "status", "shutdown complete", "signal", sig)
 
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.Web.ShutdownTimeout)
 		defer cancel()
@@ -149,7 +181,7 @@ func initDebugMux(log *zap.SugaredLogger, host string) {
 
 	go func() {
 		if err := http.ListenAndServe(host, debugMux); err != nil {
-			log.Errorw("Shutdown", "status", "Debug router closed", "host", host, "ERROR", err)
+			log.Errorw("shutdown", "status", "debug router closed", "host", host, "ERROR", err)
 		}
 	}()
 
