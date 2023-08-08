@@ -5,7 +5,10 @@ monitor:
 
 
 loads:
-	hey -m GET -c 100 -n 10000 -H "Authorization: Bearer ${TOKEN}" http://localhost:3000/v1/test"
+	hey -m GET -c 100 -n 10000 -H "Authorization: Bearer ${TOKEN}" http://localhost:3000/v1/test
+
+db: 
+	 dblab --host 0.0.0.0 --user postgres --db postgres --ssl disable --port 5432 --driver postgres
 
 # Testng auth 
 # curl -iH "Authorization: Bearer ${TOKEN}" http://localhost:3000/v1/testauth
@@ -50,13 +53,18 @@ kind-status:
 	kubectl get pods -o wide --watch --all-namespaces
 
 kind-status-sales:
-	kubectl get pods -o wide --watch --all-namespaces 
+	kubectl get pods -o wide --watch
+
+kind-status-db:
+	kubectl get pods -o wide --watch --namespace=database-sys
 
 kind-load:
 	cd zarf/k8s/kind/sales-pod; kustomize edit set image sales-api-image=sales-api-amd64:${VERSION}
 	kind load docker-image sales-api-amd64:${VERSION} --name ${KIND_CLUSTER}
 
 kind-apply:
+	kustomize build zarf/k8s/kind/database-pod | kubectl apply -f -
+	kubectl rollout status --namespace=database-sys --watch --timeout=120s sts/database
 	kustomize build zarf/k8s/kind/sales-pod | kubectl apply -f -
 
 kind-logs:
