@@ -6,21 +6,30 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/jmoiron/sqlx"
+	"github.com/tcmhoang/sservices/business/sys/database"
 	"go.uber.org/zap"
 )
 
 type Handlers struct {
 	Build string
 	Log   *zap.SugaredLogger
+	DB    *sqlx.DB
 }
 
 func (h Handlers) Readiness(w http.ResponseWriter, r *http.Request) {
+	statusCode := http.StatusOK
+	status := "ok"
+
+	if err := database.StatusCheck(r.Context(), h.DB); err != nil {
+		status = "db not ready"
+		statusCode = http.StatusInternalServerError
+	}
 	data := struct {
 		Status string `json:"status"`
 	}{
-		Status: "OK",
+		Status: status,
 	}
-	statusCode := http.StatusOK
 
 	if err := response(w, statusCode, data); err != nil {
 		h.Log.Errorw("readiness", "ERROR", err)

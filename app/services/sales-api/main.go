@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ardanlabs/conf"
+	"github.com/jmoiron/sqlx"
 	"github.com/tcmhoang/sservices/app/services/sales-api/handlers"
 	"github.com/tcmhoang/sservices/business/sys/auth"
 	"github.com/tcmhoang/sservices/business/sys/database"
@@ -127,7 +128,7 @@ func run(log *zap.SugaredLogger) error {
 	}()
 
 	log.Infow("startup", "status", "debug router started", "host", cfg.Web.DebugHost)
-	initDebugMux(log, cfg.Web.DebugHost)
+	initDebugMux(log, cfg.Web.DebugHost, db)
 
 	log.Infow("startup", "status", "initializing API support")
 
@@ -176,8 +177,8 @@ func run(log *zap.SugaredLogger) error {
 	return nil
 }
 
-func initDebugMux(log *zap.SugaredLogger, host string) {
-	debugMux := handlers.DebugMux(build, log)
+func initDebugMux(log *zap.SugaredLogger, host string, db *sqlx.DB) {
+	debugMux := handlers.DebugMux(build, log, db)
 
 	go func() {
 		if err := http.ListenAndServe(host, debugMux); err != nil {

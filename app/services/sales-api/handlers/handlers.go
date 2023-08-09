@@ -8,6 +8,7 @@ import (
 	"net/http/pprof"
 	"os"
 
+	"github.com/jmoiron/sqlx"
 	chkgrp "github.com/tcmhoang/sservices/app/services/sales-api/handlers/debug"
 	"github.com/tcmhoang/sservices/app/services/sales-api/handlers/v1/testgrp"
 	"github.com/tcmhoang/sservices/business/sys/auth"
@@ -29,12 +30,13 @@ func debugStdLibMux() *http.ServeMux {
 	return mux
 }
 
-func DebugMux(build string, log *zap.SugaredLogger) http.Handler {
+func DebugMux(build string, log *zap.SugaredLogger, db *sqlx.DB) http.Handler {
 	mux := debugStdLibMux()
 
 	cgh := chkgrp.Handlers{
 		Build: build,
 		Log:   log,
+		DB:    db,
 	}
 
 	mux.HandleFunc("/debug/readiness", cgh.Readiness)
@@ -47,6 +49,7 @@ type APIMuxConfig struct {
 	Shutdown chan os.Signal
 	Log      *zap.SugaredLogger
 	Auth     *auth.Auth
+	DB       *sqlx.DB
 }
 
 func APIMux(cfg APIMuxConfig) *web.App {
