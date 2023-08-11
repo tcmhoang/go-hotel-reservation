@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/ardanlabs/conf v1.5.0
+	github.com/ardanlabs/darwin/v3 v3.3.0
 	github.com/dimfeld/httptreemux/v5 v5.5.0
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/google/uuid v1.3.0
