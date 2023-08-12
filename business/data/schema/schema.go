@@ -19,6 +19,9 @@ var (
 	//go:embed sql/schema.sql
 	schemaDoc string
 
+	//go:embed sql/seed.sql
+	seedDoc string
+
 	//go:embed sql/delete.sql
 	deleteDoc string
 )
@@ -39,7 +42,15 @@ func Migrate(ctx context.Context, db *sqlx.DB) error {
 
 }
 
-func DeleteAll(ctx context.Context, db *sqlx.DB) (rerr error) {
+func DeleteAll(ctx context.Context, db *sqlx.DB) error {
+	return auxExec(ctx, db, deleteDoc)
+}
+
+func Seed(ctx context.Context, db *sqlx.DB) error {
+	return auxExec(ctx, db, seedDoc)
+}
+
+func auxExec(ctx context.Context, db *sqlx.DB, doc string) (rerr error) {
 	if err := database.StatusCheck(ctx, db); err != nil {
 		return fmt.Errorf("status check databse: %w", err)
 	}
@@ -54,12 +65,12 @@ func DeleteAll(ctx context.Context, db *sqlx.DB) (rerr error) {
 			if errors.Is(errp, sql.ErrTxDone) {
 				return
 			}
-			err = fmt.Errorf("rollback: %w", err)
+			rerr = fmt.Errorf("rollback: %w", err)
 			return
 		}
 	}()
 
-	if _, err := tx.Exec(deleteDoc); err != nil {
+	if _, err := tx.Exec(doc); err != nil {
 		return fmt.Errorf("execute: %w", err)
 	}
 
