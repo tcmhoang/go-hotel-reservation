@@ -5,6 +5,10 @@ ARG BUILD_REF
 
 COPY . /service
 
+WORKDIR /service/app/tooling/admin
+RUN go build -ldflags "-X main.build=${BUILD_REF}"
+
+
 WORKDIR /service/app/services/sales-api
 RUN go build -ldflags "-X main.build=${BUILD_REF}"
 
@@ -15,7 +19,8 @@ ARG BUILD_DATE
 ARG BUILD_REF
 
 COPY --from=build_api /service/zarf/keys/. /service/zarf/keys/.
-COPY --from=build_api /service/app/services/sales-api/sales-api /service/sales-api.out
+COPY --from=build_api /service/app/tooling/admin/admin /service/admin.o
+COPY --from=build_api /service/app/services/sales-api/sales-api /service/sales-api.o
 
 WORKDIR /service
 
