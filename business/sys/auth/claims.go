@@ -7,19 +7,19 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type Roles int
+type Role int
 
 const (
-	Admin Roles = iota
+	Admin Role = iota
 	User
 )
 
 type Claims struct {
 	jwt.RegisteredClaims
-	Roles []Roles `json:"roles"`
+	Roles []Role `json:"roles"`
 }
 
-func (c Claims) Authorized(roles ...Roles) bool {
+func (c Claims) Authorized(roles ...Role) bool {
 	for _, has := range c.Roles {
 		for _, want := range roles {
 			if has == want {
