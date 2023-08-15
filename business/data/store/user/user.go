@@ -18,26 +18,25 @@ import (
 )
 
 var (
-	ErrNotFound              = errors.New("user not found")
-	ErrInvalidEmail          = errors.New("email is not valid")
-	ErrUniqueEmail           = errors.New("email is not unique")
-	ErrForbidden             = errors.New("forbidden operation")
-	ErrAuthenticationFailure = errors.New("authentication failed")
+	ErrNotFound     = errors.New("user not found")
+	ErrInvalidEmail = errors.New("email is not valid")
+	ErrUniqueEmail  = errors.New("email is not unique")
+	ErrForbidden    = errors.New("forbidden operation")
 )
 
-type Core struct {
+type Store struct {
 	log *zap.SugaredLogger
 	db  *sqlx.DB
 }
 
-func NewCore(log *zap.SugaredLogger, db *sqlx.DB) *Core {
-	return &Core{
+func NewStore(log *zap.SugaredLogger, db *sqlx.DB) *Store {
+	return &Store{
 		log: log,
 		db:  db,
 	}
 }
 
-func (c *Core) Create(ctx context.Context, nu NewUser) (User, error) {
+func (s *Store) Create(ctx context.Context, nu NewUser) (User, error) {
 
 	if err := validation.Check(nu); err != nil {
 		return User{}, fmt.Errorf("validating data: %w", err)
@@ -69,7 +68,7 @@ func (c *Core) Create(ctx context.Context, nu NewUser) (User, error) {
 			(:user_id, :name, :email, :password_hash, :roles, :enabled, :date_created, :date_updated)
 		`
 
-	if err := database.NamedExecContext(ctx, c.log, c.db, q, usr); err != nil {
+	if err := database.NamedExecContext(ctx, s.log, s.db, q, usr); err != nil {
 		if errors.Is(err, database.ErrDBDuplicatedEntry) {
 			return User{}, fmt.Errorf("create: %w", ErrUniqueEmail)
 		}
@@ -79,7 +78,7 @@ func (c *Core) Create(ctx context.Context, nu NewUser) (User, error) {
 	return usr, nil
 }
 
-func (c *Core) Update(ctx context.Context, usr User, uu UpdateUser) (User, error) {
+func (s *Store) Update(ctx context.Context, usr User, uu UpdateUser) (User, error) {
 
 	if err := validation.Check(uu); err != nil {
 		return User{}, fmt.Errorf("validating data: %w", err)
@@ -122,7 +121,7 @@ func (c *Core) Update(ctx context.Context, usr User, uu UpdateUser) (User, error
 			user_id = :user_id
 		`
 
-	if err := database.NamedExecContext(ctx, c.log, c.db, q, usr); err != nil {
+	if err := database.NamedExecContext(ctx, s.log, s.db, q, usr); err != nil {
 		if errors.Is(err, database.ErrDBDuplicatedEntry) {
 			return User{}, ErrUniqueEmail
 		}
@@ -132,7 +131,7 @@ func (c *Core) Update(ctx context.Context, usr User, uu UpdateUser) (User, error
 	return usr, nil
 }
 
-func (c *Core) Delete(ctx context.Context, claims auth.Claims, usr User) error {
+func (s *Store) Delete(ctx context.Context, claims auth.Claims, usr User) error {
 
 	if !claims.Authorized(auth.Admin) && claims.Subject != usr.ID.String() {
 		return ErrNotFound
@@ -151,14 +150,14 @@ func (c *Core) Delete(ctx context.Context, claims auth.Claims, usr User) error {
 		user_id = :user_id
 		`
 
-	if err := database.NamedExecContext(ctx, c.log, c.db, q, data); err != nil {
+	if err := database.NamedExecContext(ctx, s.log, s.db, q, data); err != nil {
 		return fmt.Errorf("deleting userID[%s]: %w", usr.ID, err)
 	}
 
 	return nil
 }
 
-func (c *Core) Query(ctx context.Context, pageNumber int, rowsPerPage int) ([]User, error) {
+func (s *Store) Query(ctx context.Context, pageNumber int, rowsPerPage int) ([]User, error) {
 
 	data := struct {
 		Offset      int `db:"offset"`
@@ -179,14 +178,14 @@ func (c *Core) Query(ctx context.Context, pageNumber int, rowsPerPage int) ([]Us
 	`
 
 	var usrs []User
-	if err := database.NamedQueryAggregation(ctx, c.log, c.db, q, data, &usrs); err != nil {
+	if err := database.NamedQueryAggregation(ctx, s.log, s.db, q, data, &usrs); err != nil {
 		return nil, fmt.Errorf("selecting users: %w", err)
 	}
 
 	return usrs, nil
 }
 
-func (c *Core) QueryByID(ctx context.Context, userID uuid.UUID) (User, error) {
+func (s *Store) QueryByID(ctx context.Context, userID uuid.UUID) (User, error) {
 	data := struct {
 		UserID string `db:"user_id"`
 	}{
@@ -202,7 +201,7 @@ func (c *Core) QueryByID(ctx context.Context, userID uuid.UUID) (User, error) {
 			user_id = :user_id
 		`
 	var usr User
-	if err := database.NamedQueryScalar(ctx, c.log, c.db, q, data, &usr); err != nil {
+	if err := database.NamedQueryScalar(ctx, s.log, s.db, q, data, &usr); err != nil {
 		if errors.Is(err, database.ErrDBNotFound) {
 			return User{}, ErrNotFound
 		}
@@ -212,7 +211,7 @@ func (c *Core) QueryByID(ctx context.Context, userID uuid.UUID) (User, error) {
 	return usr, nil
 }
 
-func (c *Core) QueryByEmail(ctx context.Context, email mail.Address) (User, error) {
+func (s *Store) QueryByEmail(ctx context.Context, email mail.Address) (User, error) {
 	data := struct {
 		Email string `db:"email"`
 	}{
@@ -228,7 +227,7 @@ func (c *Core) QueryByEmail(ctx context.Context, email mail.Address) (User, erro
 			email = :email
 		`
 	var usr User
-	if err := database.NamedQueryScalar(ctx, c.log, c.db, q, data, &usr); err != nil {
+	if err := database.NamedQueryScalar(ctx, s.log, s.db, q, data, &usr); err != nil {
 		if errors.Is(err, database.ErrDBNotFound) {
 			return User{}, ErrNotFound
 		}
@@ -237,17 +236,4 @@ func (c *Core) QueryByEmail(ctx context.Context, email mail.Address) (User, erro
 
 	return usr, nil
 
-}
-
-func (c *Core) Authenticate(ctx context.Context, email mail.Address, password string) (User, error) {
-	usr, err := c.QueryByEmail(ctx, email)
-	if err != nil {
-		return User{}, fmt.Errorf("query: %w", err)
-	}
-
-	if err := bcrypt.CompareHashAndPassword(usr.PasswordHash, []byte(password)); err != nil {
-		return User{}, ErrAuthenticationFailure
-	}
-
-	return usr, nil
 }
