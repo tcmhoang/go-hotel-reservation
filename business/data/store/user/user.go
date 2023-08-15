@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,10 +18,11 @@ import (
 )
 
 var (
-	ErrNotFound     = errors.New("user not found")
-	ErrInvalidEmail = errors.New("email is not valid")
-	ErrUniqueEmail  = errors.New("email is not unique")
-	ErrForbidden    = errors.New("forbidden operation")
+	ErrNotFound              = errors.New("user not found")
+	ErrInvalidEmail          = errors.New("email is not valid")
+	ErrUniqueEmail           = errors.New("email is not unique")
+	ErrForbidden             = errors.New("forbidden operation")
+	ErrAuthenticationFailure = errors.New("authentication failed")
 )
 
 type Core struct {
@@ -133,7 +135,7 @@ func (c *Core) Update(ctx context.Context, usr User, uu UpdateUser) (User, error
 func (c *Core) Delete(ctx context.Context, claims auth.Claims, usr User) error {
 
 	if !claims.Authorized(auth.Admin) && claims.Subject != usr.ID.String() {
-		return database.ErrDBNotFound
+		return ErrNotFound
 	}
 
 	data := struct {
@@ -182,4 +184,70 @@ func (c *Core) Query(ctx context.Context, pageNumber int, rowsPerPage int) ([]Us
 	}
 
 	return usrs, nil
+}
+
+func (c *Core) QueryByID(ctx context.Context, userID uuid.UUID) (User, error) {
+	data := struct {
+		UserID string `db:"user_id"`
+	}{
+		UserID: userID.String(),
+	}
+
+	const q = `
+		SELECT
+			*
+		FROM
+			users
+		WHERE 
+			user_id = :user_id
+		`
+	var usr User
+	if err := database.NamedQueryScalar(ctx, c.log, c.db, q, data, &usr); err != nil {
+		if errors.Is(err, database.ErrDBNotFound) {
+			return User{}, ErrNotFound
+		}
+		return User{}, fmt.Errorf("selecting userID[%q]: %w", userID, err)
+	}
+
+	return usr, nil
+}
+
+func (c *Core) QueryByEmail(ctx context.Context, email mail.Address) (User, error) {
+	data := struct {
+		Email string `db:"email"`
+	}{
+		Email: email.Address,
+	}
+
+	const q = `
+		SELECT
+			*
+		FROM
+			users
+		WHERE
+			email = :email
+		`
+	var usr User
+	if err := database.NamedQueryScalar(ctx, c.log, c.db, q, data, &usr); err != nil {
+		if errors.Is(err, database.ErrDBNotFound) {
+			return User{}, ErrNotFound
+		}
+		return User{}, fmt.Errorf("selecting email[%q]: %w", email, err)
+	}
+
+	return usr, nil
+
+}
+
+func (c *Core) Authenticate(ctx context.Context, email mail.Address, password string) (User, error) {
+	usr, err := c.QueryByEmail(ctx, email)
+	if err != nil {
+		return User{}, fmt.Errorf("query: %w", err)
+	}
+
+	if err := bcrypt.CompareHashAndPassword(usr.PasswordHash, []byte(password)); err != nil {
+		return User{}, ErrAuthenticationFailure
+	}
+
+	return usr, nil
 }
