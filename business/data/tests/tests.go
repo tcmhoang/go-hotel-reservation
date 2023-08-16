@@ -1,5 +1,5 @@
-// Package dbtest contains supporting code for running tests that hit the DB.
-package data_tests
+// Package tests contains supporting code for running tests that hit the DB.
+package tests
 
 import (
 	"bytes"
@@ -16,6 +16,11 @@ import (
 	"github.com/tcmhoang/sservices/foundation/docker"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+)
+
+const (
+	Success = "\u2713"
+	Failed  = "\u2717"
 )
 
 func InitDB() (*docker.Container, error) {
@@ -147,4 +152,8 @@ func NewTest(t *testing.T, c *docker.Container) *State {
 	}
 
 	return &test
+}
+
+func StringPointer(s string) *string {
+	return &s
 }
