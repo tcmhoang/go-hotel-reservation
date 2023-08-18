@@ -14,8 +14,8 @@ import (
 	"github.com/tcmhoang/sservices/business/data/schema"
 	"github.com/tcmhoang/sservices/business/sys/database"
 	"github.com/tcmhoang/sservices/foundation/docker"
+	"github.com/tcmhoang/sservices/foundation/logger"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -109,15 +109,12 @@ func NewTest(t *testing.T, c *docker.Container) *State {
 		t.Fatalf("Seeding error: %s", err)
 	}
 
-	config := zap.NewProductionConfig()
-	config.OutputPaths = []string{"stdout"}
-	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	config.DisableStacktrace = true
-	config.InitialFields = map[string]interface{}{
-		"service": "TEST",
+	log, err := logger.New("SALES-API")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
-
-	log, err := config.Build()
+	defer log.Sync()
 
 	if err != nil {
 		t.Fatalf("Initializing logger: %v", err)
