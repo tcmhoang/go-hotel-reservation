@@ -5,7 +5,6 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,23 +18,23 @@ import (
 	"github.com/tcmhoang/sservices/business/sys/auth"
 	"github.com/tcmhoang/sservices/business/sys/database"
 	"github.com/tcmhoang/sservices/foundation/keystore"
+	"github.com/tcmhoang/sservices/foundation/logger"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 var build = "develop"
 
 func main() {
-	logger, err := initLogger()
+	log, err := logger.New("SALES-API")
 	if err != nil {
-		log.Printf("Error constructing logger: %s", err)
+		fmt.Println(err)
 		os.Exit(1)
 	}
-	defer logger.Sync()
+	defer log.Sync()
 
-	if err := run(logger); err != nil {
-		logger.Errorw("Startup", "ERROR", err)
+	if err := run(log); err != nil {
+		log.Errorw("Startup", "ERROR", err)
 		os.Exit(1)
 	}
 
@@ -205,21 +204,4 @@ func initConfig(cfg interface{}) (string, error) {
 	}
 
 	return out, nil
-}
-
-func initLogger() (*zap.SugaredLogger, error) {
-	config := zap.NewProductionConfig()
-	config.OutputPaths = []string{"stdout"}
-	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	config.DisableStacktrace = true
-	config.InitialFields = map[string]interface{}{
-		"service": "SALES-API",
-	}
-
-	log, err := config.Build()
-	if err != nil {
-		return nil, err
-	}
-
-	return log.Sugar(), nil
 }
