@@ -11,6 +11,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	chkgrp "github.com/tcmhoang/sservices/app/services/sales-api/handlers/debug"
 	"github.com/tcmhoang/sservices/app/services/sales-api/handlers/v1/testgrp"
+	"github.com/tcmhoang/sservices/app/services/sales-api/handlers/v1/usergrp"
+	usercore "github.com/tcmhoang/sservices/business/core/user"
 	"github.com/tcmhoang/sservices/business/sys/auth"
 	"github.com/tcmhoang/sservices/business/web/mids"
 	"github.com/tcmhoang/sservices/foundation/web"
@@ -80,5 +82,13 @@ func v1(app *web.App, cfg APIMuxConfig) {
 		mids.Authenticate(cfg.Auth),
 		mids.Authorize(auth.Admin),
 	)
+
+	ugh := usergrp.New(usercore.NewCore(cfg.Log, cfg.DB), cfg.Auth)
+	app.Handle(http.MethodGet, ver, "/users/token/:kid", ugh.Token)
+	app.Handle(http.MethodGet, ver, "/users", ugh.Query, mids.Authenticate(cfg.Auth), mids.Authorize(auth.Admin))
+	app.Handle(http.MethodGet, ver, "/users/:user_id", ugh.QueryByID, mids.Authenticate(cfg.Auth))
+	app.Handle(http.MethodPost, ver, "/users", ugh.Create, mids.Authenticate(cfg.Auth), mids.Authorize(auth.Admin))
+	app.Handle(http.MethodPut, ver, "/users/:user_id", ugh.Update, mids.Authenticate(cfg.Auth))
+	app.Handle(http.MethodDelete, ver, "/users/:user_id", ugh.Delete, mids.Authenticate(cfg.Auth))
 
 }

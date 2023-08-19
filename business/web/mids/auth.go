@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/tcmhoang/sservices/business/sys/auth"
 	"github.com/tcmhoang/sservices/business/sys/validation"
 	"github.com/tcmhoang/sservices/foundation/web"
@@ -48,6 +49,18 @@ func Authorize(roles ...auth.Role) web.Middleware {
 					http.StatusForbidden,
 				)
 			}
+
+			var userID uuid.UUID
+			id := web.Param(r, "user_id")
+			if id != "" {
+				var err error
+				userID, err = uuid.Parse(id)
+				if err != nil {
+					return validation.NewRequestError(validation.ErrInvalidID, http.StatusBadRequest)
+				}
+				ctx = auth.SetUserID(ctx, userID)
+			}
+
 			if !claims.Authorized(roles...) {
 				return validation.NewRequestError(
 					fmt.Errorf("not authorized for that action, got %v roles %v", claims.Roles, roles),

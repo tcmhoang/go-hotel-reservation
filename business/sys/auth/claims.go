@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type Role int
@@ -34,6 +35,8 @@ type ctxKey int
 
 const key ctxKey = 1
 
+const userKey ctxKey = 2
+
 func SetClaims(ctx context.Context, claims Claims) context.Context {
 	return context.WithValue(ctx, key, claims)
 }
@@ -44,4 +47,16 @@ func GetClaims(ctx context.Context) (Claims, error) {
 		return Claims{}, errors.New("claims value missing from context")
 	}
 	return claims, nil
+}
+
+func SetUserID(ctx context.Context, userID uuid.UUID) context.Context {
+	return context.WithValue(ctx, userKey, userID)
+}
+
+func GetUserID(ctx context.Context) uuid.UUID {
+	v, ok := ctx.Value(userKey).(uuid.UUID)
+	if !ok {
+		return uuid.UUID{}
+	}
+	return v
 }
