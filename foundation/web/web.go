@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"syscall"
-	"time"
 
 	"github.com/dimfeld/httptreemux/v5"
 	"github.com/google/uuid"
@@ -49,7 +48,6 @@ func (a *App) Handle(method string, group string, path string, handler Handler, 
 
 		v := Values{
 			TraceID: uuid.New().String(),
-			Now:     time.Now(),
 		}
 		ctx = context.WithValue(ctx, key, &v)
 

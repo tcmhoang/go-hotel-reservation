@@ -35,7 +35,7 @@ func Logger(log *zap.SugaredLogger) web.Middleware {
 				"path", r.URL.Path,
 				"remoteaddr", r.RemoteAddr,
 				"statuscode", v.StatusCode,
-				"since", time.Since(v.Now),
+				"since", time.Now(),
 			)
 			return err
 

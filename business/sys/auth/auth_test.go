@@ -40,7 +40,7 @@ func TestAuth(t *testing.T) {
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour).UTC()),
 					IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 				},
-				Roles: []auth.Roles{auth.Admin},
+				Roles: []auth.Role{auth.Admin},
 			}
 
 			token, err := a.GeneratingToken(claims)

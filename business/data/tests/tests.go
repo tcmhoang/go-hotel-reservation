@@ -143,7 +143,7 @@ func NewTest(t *testing.T, c *docker.Container) *State {
 
 	test := State{
 		DB:       dbconn,
-		Log:      log.Sugar(),
+		Log:      log,
 		Teardown: teardown,
 		t:        t,
 	}

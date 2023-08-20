@@ -1,5 +1,4 @@
-// package database provides support for accessing the database
-
+// Package database provides support for accessing the database
 package database
 
 import (

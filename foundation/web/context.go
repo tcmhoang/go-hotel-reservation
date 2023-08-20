@@ -3,7 +3,6 @@ package web
 import (
 	"context"
 	"errors"
-	"time"
 )
 
 type ctxKey int
@@ -12,7 +11,6 @@ const key ctxKey = 1
 
 type Values struct {
 	TraceID    string
-	Now        time.Time
 	StatusCode int
 }
 

@@ -25,7 +25,7 @@ func InitContainer(img string, port string, dockargs []string, appargs []string)
 	cmd.Stdout = &out
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("could not start container %s: %w", image, err)
+		return nil, fmt.Errorf("could not start container %s: %w", img, err)
 	}
 
 	id := out.String()[:12]

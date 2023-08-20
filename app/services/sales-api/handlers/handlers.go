@@ -84,7 +84,7 @@ func v1(app *web.App, cfg APIMuxConfig) {
 	)
 
 	ugh := usergrp.New(usercore.NewCore(cfg.Log, cfg.DB), cfg.Auth)
-	app.Handle(http.MethodGet, ver, "/users/token/:kid", ugh.Token)
+	app.Handle(http.MethodGet, ver, "/users/token", ugh.Token)
 	app.Handle(http.MethodGet, ver, "/users", ugh.Query, mids.Authenticate(cfg.Auth), mids.Authorize(auth.Admin))
 	app.Handle(http.MethodGet, ver, "/users/:user_id", ugh.QueryByID, mids.Authenticate(cfg.Auth))
 	app.Handle(http.MethodPost, ver, "/users", ugh.Create, mids.Authenticate(cfg.Auth), mids.Authorize(auth.Admin))

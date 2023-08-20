@@ -33,6 +33,15 @@ type FieldError struct {
 
 type FieldErrors []FieldError
 
+func NewFieldsError(field string, err error) error {
+	return FieldErrors{
+		{
+			Field: field,
+			Error: err.Error(),
+		},
+	}
+}
+
 func (fe FieldErrors) Error() string {
 	d, err := json.Marshal(fe)
 	if err != nil {
