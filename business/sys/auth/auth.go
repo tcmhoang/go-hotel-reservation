@@ -56,11 +56,11 @@ func New(activeKID string, kup KeyLookup) (*Auth, error) {
 	return &out, nil
 }
 
-func (a *Auth) GeneratingToken(c Claims) (string, error) {
+func (a *Auth) GenerateToken(c Claims) (string, error) {
 	token := jwt.NewWithClaims(a.method, c)
 	token.Header["kid"] = a.activeKID
 
-	privkey, err := a.KeyLookup.PrivateKey(a.activeKID)
+	privkey, err := a.PrivateKey(a.activeKID)
 	if err != nil {
 		return "", errors.New("kid lookup private failed")
 	}

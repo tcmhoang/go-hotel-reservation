@@ -7,13 +7,16 @@ import (
 	"crypto/rsa"
 	"fmt"
 	"io"
+	"net/mail"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jmoiron/sqlx"
 	"github.com/tcmhoang/sservices/business/data/schema"
+	"github.com/tcmhoang/sservices/business/data/store/user"
 	"github.com/tcmhoang/sservices/business/sys/auth"
 	"github.com/tcmhoang/sservices/business/sys/database"
 	"github.com/tcmhoang/sservices/foundation/docker"
@@ -160,6 +163,48 @@ func NewTest(t *testing.T, c *docker.Container) *State {
 	}
 
 	return &test
+}
+
+func (s *State) Token(email string, pass string) string {
+	s.t.Log("Generating token for test ...")
+
+	addr, _ := mail.ParseAddress(email)
+
+	store := user.NewStore(s.Log, s.DB)
+	user, err := store.QueryByEmail(context.Background(), *addr)
+	if err != nil {
+		return ""
+	}
+
+	var roles []auth.Role
+
+	for _, r := range user.Roles {
+		switch strings.ToLower(r) {
+		case "admin":
+			roles = append(roles, auth.Admin)
+		case "user":
+			roles = append(roles, auth.User)
+
+		default:
+
+		}
+	}
+	claims := auth.Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   user.ID.String(),
+			Issuer:    "service project",
+			ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
+		},
+		Roles: roles,
+	}
+
+	token, err := s.Auth.GenerateToken(claims)
+	if err != nil {
+		s.t.Fatal(err)
+	}
+
+	return token
 }
 
 func StringPointer(s string) *string {
