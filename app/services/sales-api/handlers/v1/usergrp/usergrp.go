@@ -188,7 +188,7 @@ func (h *Handlers) Token(ctx context.Context, w http.ResponseWriter, r *http.Req
 		Token string `json:"token"`
 	}
 
-	tkn.Token, err = h.auth.GeneratingToken(claims)
+	tkn.Token, err = h.auth.GenerateToken(claims)
 	if err != nil {
 		return fmt.Errorf("generatetoken: %w", err)
 	}

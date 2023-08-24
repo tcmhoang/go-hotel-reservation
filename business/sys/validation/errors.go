@@ -8,8 +8,8 @@ import (
 var ErrInvalidID = errors.New("ID is not in its proper form")
 
 type ErrorResponse struct {
-	Error  string `json:"error"`
-	Fields string `json:"fields,omitempty"`
+	Error  string            `json:"error"`
+	Fields map[string]string `json:"fields,omitempty"`
 }
 
 type RequestError struct {
@@ -48,6 +48,14 @@ func (fe FieldErrors) Error() string {
 		return err.Error()
 	}
 	return string(d)
+}
+
+func (fe FieldErrors) Fields() map[string]string {
+	m := make(map[string]string)
+	for _, fld := range fe {
+		m[fld.Field] = fld.Error
+	}
+	return m
 }
 
 func Cause(err error) error {

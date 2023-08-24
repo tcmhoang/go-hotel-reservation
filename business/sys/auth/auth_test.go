@@ -43,7 +43,7 @@ func TestAuth(t *testing.T) {
 				Roles: []auth.Role{auth.Admin},
 			}
 
-			token, err := a.GeneratingToken(claims)
+			token, err := a.GenerateToken(claims)
 			if err != nil {
 				t.Fatalf("\t%s\tTest: %d:\tShould be able to generate the claims: %v", failed, testID, err)
 			}
