@@ -14,6 +14,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/tcmhoang/sservices/foundation/web"
+	"go.opentelemetry.io/otel/attribute"
 	"go.uber.org/zap"
 )
 
@@ -104,6 +105,9 @@ func NamedExecContext[A any](ctx context.Context, log *zap.SugaredLogger, db sql
 	q := queryString(query, data)
 	log.Infow("database.NamedExecuteContext", "traceid", web.GetTraceID(ctx), "query", q)
 
+	ctx, span := web.AddSpan(ctx, "business.sys.database.exec", attribute.String("query", q))
+	defer span.End()
+
 	if _, err := sqlx.NamedExecContext(ctx, db, query, data); err != nil {
 		if qperr, ok := err.(*pgconn.PgError); ok {
 			switch qperr.Code {
@@ -121,6 +125,9 @@ func NamedExecContext[A any](ctx context.Context, log *zap.SugaredLogger, db sql
 func NamedQueryAggregation[A, B any](ctx context.Context, log *zap.SugaredLogger, db sqlx.ExtContext, query string, data A, dest *[]B) error {
 	q := queryString(query, data)
 	log.Infow("database.NamedQueryAggregation", "traceid", web.GetTraceID(ctx), "query", q)
+
+	ctx, span := web.AddSpan(ctx, "business.sys.database.queryaggregation", attribute.String("query", q))
+	defer span.End()
 
 	rows, err := sqlx.NamedQueryContext(ctx, db, query, data)
 	if err != nil {
@@ -149,6 +156,9 @@ func NamedQueryScalar[A, B any](ctx context.Context, log *zap.SugaredLogger, db 
 
 	q := queryString(query, data)
 	log.Infow("database.NamedQueryScalar", "traceid", web.GetTraceID(ctx), "query", q)
+
+	ctx, span := web.AddSpan(ctx, "business.sys.database.queryscalar", attribute.String("query", q))
+	defer span.End()
 
 	rows, err := sqlx.NamedQueryContext(ctx, db, query, data)
 

@@ -63,6 +63,7 @@ func (a *App) Handle(method string, group string, path string, handler Handler, 
 
 		v := Values{
 			TraceID: span.SpanContext().TraceID().String(),
+			Tracer:  a.tracer,
 		}
 		ctx = context.WithValue(ctx, key, &v)
 
