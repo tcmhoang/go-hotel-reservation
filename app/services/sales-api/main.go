@@ -20,8 +20,9 @@ import (
 	"github.com/tcmhoang/sservices/foundation/keystore"
 	"github.com/tcmhoang/sservices/foundation/logger"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+
+	"go.opentelemetry.io/otel/exporters/zipkin"
+
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -236,14 +237,12 @@ func initConfig(cfg interface{}) (string, error) {
 }
 
 func startTracing(serviceName string, reporterURI string, probability float64) (*trace.TracerProvider, error) {
-	exporter, err := otlptrace.New(
-		context.Background(),
-		otlptracegrpc.NewClient(
-			otlptracegrpc.WithInsecure(), // This should be configurable
-			otlptracegrpc.WithEndpoint(reporterURI),
-		),
+
+	exporter, err := zipkin.New(
+		reporterURI,
 	)
 	if err != nil {
+
 		return nil, fmt.Errorf("creating new exporter: %w", err)
 	}
 
