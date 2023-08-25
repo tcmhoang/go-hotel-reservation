@@ -12,6 +12,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -28,7 +29,7 @@ type UserTests struct {
 	adminToken string
 }
 
-func Test_Users(t *testing.T) {
+func TestUsers(t *testing.T) {
 	t.Parallel()
 
 	test := tests.NewTest(t, c)
@@ -79,6 +80,7 @@ func Test_Users(t *testing.T) {
 	t.Run("deleteUserNotFound", tests.deleteUserNotFound())
 	t.Run("putUser404", tests.putUser404())
 	t.Run("getUsers200", tests.getUsers200(usrs))
+	t.Run("crudUsers", tests.crudUser())
 
 }
 
@@ -125,8 +127,8 @@ func (ut *UserTests) postUser400() func(t *testing.T) {
 	return func(t *testing.T) {
 		usr := user.NewUser{
 			Email: mail.Address{
-				Name:    "Bill",
-				Address: "bill@ardanlabs.com",
+				Name:    "Conrad",
+				Address: "tcmhoang@outlook.com",
 			},
 		}
 
@@ -361,5 +363,222 @@ func (ut *UserTests) getUsers200(usrs []user.User) func(t *testing.T) {
 			t.Log("exp:", len(usrs))
 			t.Error("Should get the right total")
 		}
+	}
+}
+
+func (ut *UserTests) crudUser() func(t *testing.T) {
+	return func(t *testing.T) {
+		usr := ut.postUser201(t)
+		defer ut.deleteUser204(t, usr.ID.String())
+
+		ut.postUser409(t, usr)
+
+		ut.getUser200(t, usr.ID.String())
+		ut.putUser200(t, usr.ID.String())
+		ut.putUser401(t, usr.ID.String())
+	}
+}
+
+func (ut *UserTests) postUser201(t *testing.T) user.User {
+	nu := user.NewUser{
+		Name: "Conrad Hoang",
+		Email: mail.Address{
+			Name:    "Conrad Hoang",
+			Address: "tcmhoang@outlook.com",
+		},
+		Roles:           []string{"ADMIN"},
+		Password:        "gophers",
+		PasswordConfirm: "gophers",
+	}
+
+	body, err := json.Marshal(&nu)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r := httptest.NewRequest(http.MethodPost, "/v1/users", bytes.NewBuffer(body))
+	w := httptest.NewRecorder()
+
+	r.Header.Set("Authorization", "Bearer "+ut.adminToken)
+	ut.app.ServeHTTP(w, r)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("Should receive a status code of 201 for the response : %d", w.Code)
+	}
+
+	var newUsr user.User
+	if err := json.NewDecoder(w.Body).Decode(&newUsr); err != nil {
+		t.Fatalf("Should be able to unmarshal the response : %s", err)
+	}
+
+	email, err := mail.ParseAddress("tcmhoang@outlook.com")
+	if err != nil {
+		t.Fatalf("Should be able to parse email : %s", err)
+	}
+
+	exp := newUsr
+	exp.Name = "Conrad Hoang"
+	exp.Email = *email
+	exp.Roles = []string{"ADMIN"}
+
+	if diff := cmp.Diff(newUsr, exp); diff != "" {
+		t.Fatalf("Should get the expected result, diff:\n%s", diff)
+	}
+
+	return newUsr
+}
+
+func (ut *UserTests) deleteUser204(t *testing.T, id string) {
+	url := fmt.Sprintf("/v1/users/%s", id)
+
+	r := httptest.NewRequest(http.MethodDelete, url, nil)
+	w := httptest.NewRecorder()
+
+	r.Header.Set("Authorization", "Bearer "+ut.adminToken)
+	ut.app.ServeHTTP(w, r)
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("Should receive a status code of 204 for the response : %d", w.Code)
+	}
+}
+
+func (ut *UserTests) postUser409(t *testing.T, usr user.User) {
+	nu := user.NewUser{
+		Name:            usr.Name,
+		Email:           usr.Email,
+		Roles:           usr.Roles,
+		Password:        "gophers",
+		PasswordConfirm: "gophers",
+	}
+
+	body, err := json.Marshal(&nu)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r := httptest.NewRequest(http.MethodPost, "/v1/users", bytes.NewBuffer(body))
+	w := httptest.NewRecorder()
+
+	r.Header.Set("Authorization", "Bearer "+ut.adminToken)
+	ut.app.ServeHTTP(w, r)
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("Should receive a status code of 409 for the response : %d", w.Code)
+	}
+}
+
+func (ut *UserTests) getUser200(t *testing.T, id string) {
+	url := fmt.Sprintf("/v1/users/%s", id)
+
+	r := httptest.NewRequest(http.MethodGet, url, nil)
+	w := httptest.NewRecorder()
+
+	r.Header.Set("Authorization", "Bearer "+ut.adminToken)
+	ut.app.ServeHTTP(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Should receive a status code of 200 for the response : %d", w.Code)
+	}
+
+	var got struct {
+		ID           string    `json:"id"`
+		Name         string    `json:"name"`
+		Email        string    `json:"email"`
+		Roles        []string  `json:"roles"`
+		PasswordHash []byte    `json:"-"`
+		Department   string    `json:"department"`
+		Enabled      bool      `json:"enabled"`
+		DateCreated  time.Time `json:"dateCreated"`
+		DateUpdated  time.Time `json:"dateUpdated"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&got); err != nil {
+		t.Fatalf("Should be able to unmarshal the response : %s", err)
+	}
+
+	email, err := mail.ParseAddress("tcmhoang@outlook.com")
+	if err != nil {
+		t.Fatalf("Should be able to parse email : %s", err)
+	}
+
+	exp := got
+	exp.ID = id
+	exp.Name = "Conrad Hoang"
+	exp.Email = email.Address
+	exp.Roles = []string{"ADMIN"}
+
+	if diff := cmp.Diff(got, exp); diff != "" {
+		t.Errorf("Should get the expected result, Diff:\n%s", diff)
+	}
+}
+
+func (ut *UserTests) putUser200(t *testing.T, id string) {
+	u := user.UpdateUser{
+		Name: tests.StringPointer("Conrad Hoang"),
+	}
+	body, err := json.Marshal(&u)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	url := fmt.Sprintf("/v1/users/%s", id)
+
+	r := httptest.NewRequest(http.MethodPut, url, bytes.NewBuffer(body))
+	w := httptest.NewRecorder()
+
+	r.Header.Set("Authorization", "Bearer "+ut.adminToken)
+	ut.app.ServeHTTP(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Should receive a status code of 200 for the response : %d", w.Code)
+	}
+
+	r = httptest.NewRequest(http.MethodGet, "/v1/users/"+id, nil)
+	w = httptest.NewRecorder()
+
+	r.Header.Set("Authorization", "Bearer "+ut.adminToken)
+	ut.app.ServeHTTP(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Should receive a status code of 200 for the retrieve : %d", w.Code)
+	}
+
+	var ru user.User
+	if err := json.NewDecoder(w.Body).Decode(&ru); err != nil {
+		t.Fatalf("Should be able to unmarshal the response : %s", err)
+	}
+
+	if ru.Name != "Conrad Hoang" {
+		t.Fatalf("Should see an updated Name : got %q want %q", ru.Name, "Conrad Hoang")
+	}
+
+	email, err := mail.ParseAddress("tcmhoang@outlook.com")
+	if err != nil {
+		t.Fatalf("Should be able to parse email : %s", err)
+	}
+
+	if ru.Email.String() != email.Address {
+		t.Fatalf("Should not affect other fields like Email : got %q want %q", ru.Email, "tcmhoang@outlook.com")
+	}
+}
+
+func (ut *UserTests) putUser401(t *testing.T, id string) {
+	u := user.NewUser{
+		Name: "Bill Ken",
+	}
+	body, err := json.Marshal(&u)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	url := fmt.Sprintf("/v1/users/%s", id)
+
+	r := httptest.NewRequest(http.MethodPut, url, bytes.NewBuffer(body))
+	w := httptest.NewRecorder()
+
+	r.Header.Set("Authorization", "Bearer "+ut.userToken)
+	ut.app.ServeHTTP(w, r)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("Should receive a status code of 401 for the response : %d", w.Code)
 	}
 }
