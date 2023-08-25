@@ -16,6 +16,7 @@ import (
 	"github.com/tcmhoang/sservices/business/sys/auth"
 	"github.com/tcmhoang/sservices/business/web/mids"
 	"github.com/tcmhoang/sservices/foundation/web"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -52,11 +53,13 @@ type APIMuxConfig struct {
 	Log      *zap.SugaredLogger
 	Auth     *auth.Auth
 	DB       *sqlx.DB
+	Tracer   trace.Tracer
 }
 
 func APIMux(cfg APIMuxConfig) *web.App {
 	app := web.NewApp(
 		cfg.Shutdown,
+		cfg.Tracer,
 		mids.Logger(cfg.Log),
 		mids.Errors(cfg.Log),
 		mids.Metrics(),

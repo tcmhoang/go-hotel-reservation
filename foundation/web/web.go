@@ -8,27 +8,41 @@ import (
 	"syscall"
 
 	"github.com/dimfeld/httptreemux/v5"
-	"github.com/google/uuid"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Handler func(ctx context.Context, w http.ResponseWriter, r *http.Request) error
 
 type App struct {
-	*httptreemux.ContextMux
+	mux      *httptreemux.ContextMux
+	otmux    http.Handler
 	shutdown chan os.Signal
 	mvs      []Middleware
+	tracer   trace.Tracer
 }
 
-func NewApp(shutdown chan os.Signal, mvs ...Middleware) *App {
+func NewApp(shutdown chan os.Signal, tracer trace.Tracer, mvs ...Middleware) *App {
+	mux := httptreemux.NewContextMux()
+
 	return &App{
-		httptreemux.NewContextMux(),
-		shutdown,
-		mvs,
+		mux:      mux,
+		shutdown: shutdown,
+		mvs:      mvs,
+		otmux:    otelhttp.NewHandler(mux, "request"),
+		tracer:   tracer,
 	}
 }
 
 func (a *App) SignalShutdown() {
 	a.shutdown <- syscall.SIGTERM
+}
+
+func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	a.otmux.ServeHTTP(w, r)
 }
 
 func (a *App) Handle(method string, group string, path string, handler Handler, mvs ...Middleware) {
@@ -44,10 +58,11 @@ func (a *App) Handle(method string, group string, path string, handler Handler, 
 
 	h := func(w http.ResponseWriter, r *http.Request) {
 
-		ctx := r.Context()
+		ctx, span := a.startSpan(w, r)
+		defer span.End()
 
 		v := Values{
-			TraceID: uuid.New().String(),
+			TraceID: span.SpanContext().TraceID().String(),
 		}
 		ctx = context.WithValue(ctx, key, &v)
 
@@ -58,5 +73,17 @@ func (a *App) Handle(method string, group string, path string, handler Handler, 
 
 	}
 
-	a.ContextMux.Handle(method, fpath, h)
+	a.mux.Handle(method, fpath, h)
+}
+
+func (a *App) startSpan(w http.ResponseWriter, r *http.Request) (context.Context, trace.Span) {
+	ctx := r.Context()
+	span := trace.SpanFromContext(ctx)
+	if a.tracer != nil {
+		ctx, span = a.tracer.Start(ctx, "pkg.web.handle")
+		span.SetAttributes(attribute.String("endpoint", r.RequestURI))
+	}
+	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(w.Header()))
+
+	return ctx, span
 }

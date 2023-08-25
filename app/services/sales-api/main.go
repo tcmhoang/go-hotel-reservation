@@ -19,6 +19,7 @@ import (
 	"github.com/tcmhoang/sservices/business/sys/database"
 	"github.com/tcmhoang/sservices/foundation/keystore"
 	"github.com/tcmhoang/sservices/foundation/logger"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 )
@@ -126,6 +127,17 @@ func run(log *zap.SugaredLogger) error {
 		db.Close()
 	}()
 
+	log.Info("startup", "status", "initializing OT/Tempo tracing support")
+
+	var traceProvider *trace.TracerProvider
+
+	if err != nil {
+		return fmt.Errorf("starting tracing: %w", err)
+	}
+	defer traceProvider.Shutdown(context.Background())
+
+	tracer := traceProvider.Tracer("service")
+
 	log.Infow("startup", "status", "debug router started", "host", cfg.Web.DebugHost)
 	initDebugMux(log, cfg.Web.DebugHost, db)
 
@@ -139,6 +151,8 @@ func run(log *zap.SugaredLogger) error {
 			Shutdown: shutdown,
 			Log:      log,
 			Auth:     auth,
+			DB:       db,
+			Tracer:   tracer,
 		})
 
 	api := http.Server{
