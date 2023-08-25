@@ -19,7 +19,13 @@ import (
 	"github.com/tcmhoang/sservices/business/sys/database"
 	"github.com/tcmhoang/sservices/foundation/keystore"
 	"github.com/tcmhoang/sservices/foundation/logger"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 )
@@ -75,6 +81,11 @@ func run(log *zap.SugaredLogger) error {
 			MaxOpenConns int    `conf:"default:0"`
 			DisableTLS   bool   `conf:"default:true"`
 		}
+		Tempo struct {
+			ReporterURI string  `conf:"default:tempo.sales-sys.svc.cluster.local:4317"`
+			ServiceName string  `conf:"default:sales-api"`
+			Probability float64 `conf:"default:0.05"`
+		}
 	}{
 		Version: conf.Version{
 			SVN:  build,
@@ -129,7 +140,11 @@ func run(log *zap.SugaredLogger) error {
 
 	log.Info("startup", "status", "initializing OT/Tempo tracing support")
 
-	var traceProvider *trace.TracerProvider
+	traceProvider, err := startTracing(
+		cfg.Tempo.ServiceName,
+		cfg.Tempo.ReporterURI,
+		cfg.Tempo.Probability,
+	)
 
 	if err != nil {
 		return fmt.Errorf("starting tracing: %w", err)
@@ -218,4 +233,39 @@ func initConfig(cfg interface{}) (string, error) {
 	}
 
 	return out, nil
+}
+
+func startTracing(serviceName string, reporterURI string, probability float64) (*trace.TracerProvider, error) {
+	exporter, err := otlptrace.New(
+		context.Background(),
+		otlptracegrpc.NewClient(
+			otlptracegrpc.WithInsecure(), // This should be configurable
+			otlptracegrpc.WithEndpoint(reporterURI),
+		),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating new exporter: %w", err)
+	}
+
+	traceProvider := trace.NewTracerProvider(
+		trace.WithSampler(trace.TraceIDRatioBased(probability)),
+		trace.WithBatcher(exporter,
+			trace.WithMaxExportBatchSize(trace.DefaultMaxExportBatchSize),
+			trace.WithBatchTimeout(trace.DefaultScheduleDelay*time.Millisecond),
+			trace.WithMaxExportBatchSize(trace.DefaultMaxExportBatchSize),
+		),
+		trace.WithResource(
+			resource.NewWithAttributes(
+				semconv.SchemaURL,
+				semconv.ServiceNameKey.String(serviceName),
+			),
+		),
+	)
+	otel.SetTracerProvider(traceProvider)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	return traceProvider, nil
 }
