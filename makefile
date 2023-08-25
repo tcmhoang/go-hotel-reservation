@@ -42,6 +42,9 @@ kind-up:
 		--name ${KIND_CLUSTER} \
 		--config zarf/k8s/kind/config.yaml
 	kubectl config set-context --current --namespace=sales-sys
+	kind load docker-image openzipkin/zipkin:2.23 --name $(KIND_CLUSTER)
+
+
 
 kind-down: 
 	kind delete cluster --name ${KIND_CLUSTER}
@@ -65,10 +68,16 @@ kind-load:
 kind-apply:
 	kustomize build zarf/k8s/kind/database-pod | kubectl apply -f -
 	kubectl rollout status --namespace=database-sys --watch --timeout=120s sts/database
+	kustomize build zarf/k8s/zipkin | kubectl apply -f -
+	kubectl wait --timeout=120s --namespace=sales-sys --for=condition=Available deployment/zipkin			
 	kustomize build zarf/k8s/kind/sales-pod | kubectl apply -f -
 
 kind-logs:
 	kubectl logs -l app=sales --all-containers=true -f --tail=100 | go run app/tooling/logfmt/main.go
+
+kind-logs-sales:
+	kubectl logs --namespace=sales-system -l app=sales --all-containers=true -f --tail=100 --max-log-requests=6 | go run app/tooling/logfmt/main.go -service=SALES-API
+
 
 kind-restart:
 	kubectl rollout restart deployment sales-pod 

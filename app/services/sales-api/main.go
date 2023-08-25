@@ -82,8 +82,9 @@ func run(log *zap.SugaredLogger) error {
 			MaxOpenConns int    `conf:"default:0"`
 			DisableTLS   bool   `conf:"default:true"`
 		}
-		Tempo struct {
-			ReporterURI string  `conf:"default:tempo.sales-sys.svc.cluster.local:4317"`
+
+		Zipkin struct {
+			ReporterURI string  `conf:"default:http://zipkin-service.sales-system.svc.cluster.local:9411/api/v2/spans"`
 			ServiceName string  `conf:"default:sales-api"`
 			Probability float64 `conf:"default:0.05"`
 		}
@@ -139,12 +140,12 @@ func run(log *zap.SugaredLogger) error {
 		db.Close()
 	}()
 
-	log.Info("startup", "status", "initializing OT/Tempo tracing support")
+	log.Info("startup", "status", "initializing OT/Zipkin tracing support")
 
 	traceProvider, err := startTracing(
-		cfg.Tempo.ServiceName,
-		cfg.Tempo.ReporterURI,
-		cfg.Tempo.Probability,
+		cfg.Zipkin.ServiceName,
+		cfg.Zipkin.ReporterURI,
+		cfg.Zipkin.Probability,
 	)
 
 	if err != nil {
