@@ -1,3 +1,4 @@
+// Package tests contains integration tests setup for the project
 package tests
 
 import (

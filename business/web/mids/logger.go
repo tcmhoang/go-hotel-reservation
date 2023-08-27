@@ -13,10 +13,7 @@ func Logger(log *zap.SugaredLogger) web.Middleware {
 	return func(handler web.Handler) web.Handler {
 		return func(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 
-			v, err := web.GetValues(ctx)
-			if err != nil {
-				return err
-			}
+			v := web.GetValues(ctx)
 
 			log.Infow(
 				"Request started",
@@ -26,7 +23,7 @@ func Logger(log *zap.SugaredLogger) web.Middleware {
 				"remoteaddr", r.RemoteAddr,
 			)
 
-			err = handler(ctx, w, r)
+			err := handler(ctx, w, r)
 
 			log.Infow(
 				"Request completed",
