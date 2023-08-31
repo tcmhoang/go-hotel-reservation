@@ -1,107 +1,91 @@
 package commands
 
 import (
-	"crypto/x509"
-	"encoding/pem"
-	"errors"
+	"context"
 	"fmt"
-	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"github.com/tcmhoang/sservices/business/data/store/user"
+	"github.com/tcmhoang/sservices/business/sys/auth"
+	"github.com/tcmhoang/sservices/business/sys/database"
+	"github.com/tcmhoang/sservices/foundation/keystore"
+	"go.uber.org/zap"
 )
 
-// TODO(tcmhoang): Need to generlize the function to handle for every kid
-func genToken() error {
-	name := "zarf/keys/private.pem"
-	file, err := os.Open(name)
-	if err != nil {
-		return err
+func genToken(log *zap.SugaredLogger, cfg database.Config, userIDStr string, kid string) error {
+	if userIDStr == "" || kid == "" {
+		fmt.Println("help: gentoken <user_id> <kid>")
+		return ErrHelp
 	}
 
-	privpem, err := io.ReadAll(io.LimitReader(file, 1024*1024))
+	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		return fmt.Errorf("reading auth private key: %w", err)
+		return fmt.Errorf("passing uuid: %w", err)
 	}
 
-	privkey, err := jwt.ParseRSAPrivateKeyFromPEM(privpem)
+	db, err := database.Open(cfg)
 	if err != nil {
-		return fmt.Errorf("parsing auth private key: %w", err)
+		return fmt.Errorf("connect database: %w", err)
+	}
+	defer db.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	store := user.NewStore(log, db)
+
+	usr, err := store.QueryByID(ctx, userID)
+
+	if err != nil {
+		return fmt.Errorf("retrieve user: %w", err)
 	}
 
-	claims := struct {
-		jwt.RegisteredClaims
-		Roles []string
-	}{
+	keysFolder := "zarf/keys/"
+	ks, err := keystore.NewFS(os.DirFS(keysFolder))
+	if err != nil {
+		return fmt.Errorf("reading keys: %w", err)
+	}
+
+	// TODO(tcmhoang): move read key info to database
+	activeKID := "private"
+	a, err := auth.New(activeKID, ks)
+	if err != nil {
+		return fmt.Errorf("constructing auth: %w", err)
+	}
+	var roles []auth.Role
+
+	for _, r := range usr.Roles {
+		switch strings.ToLower(r) {
+		case "admin":
+			roles = append(roles, auth.Admin)
+		case "user":
+			roles = append(roles, auth.User)
+
+		default:
+
+		}
+	}
+
+	claims := auth.Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "service project",
-			Subject:   "123456789",
+			Subject:   usr.ID.String(),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(8760 * time.Hour).UTC()),
 			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 		},
-		Roles: []string{"ADMIN"},
+		Roles: roles,
 	}
 
-	method := jwt.GetSigningMethod("RS256")
-	token := jwt.NewWithClaims(method, claims)
-	token.Header["kid"] = "private"
-
-	str, err := token.SignedString(privkey)
+	token, err := a.GenerateToken(claims)
 	if err != nil {
-		return err
+		return fmt.Errorf("generating token: %w", err)
 	}
 
-	fmt.Println("TOKEN BEGIN")
-	fmt.Println(str)
-	fmt.Println("TOKEN END")
-
-	fmt.Println()
-
-	asn1Bs, err := x509.MarshalPKIXPublicKey(&privkey.PublicKey)
-	if err != nil {
-		return fmt.Errorf("marshaling public key: %w", err)
-	}
-
-	pubblk := pem.Block{
-		Type:  "RSA PUBLICKEY",
-		Bytes: asn1Bs,
-	}
-
-	if err := pem.Encode(os.Stdout, &pubblk); err != nil {
-		return fmt.Errorf("encoding to public file: %w", err)
-	}
-
-	var parserClaims struct {
-		jwt.RegisteredClaims
-		Roles []string
-	}
-
-	parser := jwt.NewParser(jwt.WithValidMethods([]string{"RS256"}))
-	getPubKeyFun := func(t *jwt.Token) (interface{}, error) {
-		kid, ok := t.Header["kid"]
-		if !ok {
-			return nil, errors.New("missing key id (kid) in token header")
-		}
-		kidID, ok := kid.(string)
-		if !ok {
-			return nil, errors.New("user token id (kid) must be string")
-		}
-		fmt.Println("KID", kidID)
-		return &privkey.PublicKey, nil
-	}
-
-	parsedToken, err := parser.ParseWithClaims(str, &parserClaims, getPubKeyFun)
-
-	if err != nil {
-		return fmt.Errorf("parsing token: %w", err)
-	}
-
-	if !parsedToken.Valid {
-		return fmt.Errorf("invalid Token")
-	}
-
-	fmt.Println("Token validate")
-
+	fmt.Printf("-----BEGIN TOKEN-----\n%s\n-----END TOKEN-----\n", token)
 	return nil
+
 }
